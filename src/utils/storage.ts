@@ -18,7 +18,15 @@ const useLocalStorage = () => {
 const saveToLocalStorage = (audit: Audit): void => {
   if (!useLocalStorage()) return;
   const audits = getFromLocalStorage();
-  audits.push(audit);
+  // Vérifier si l'audit existe déjà pour éviter les doublons
+  const existingIndex = audits.findIndex(a => a.id === audit.id);
+  if (existingIndex >= 0) {
+    // Mettre à jour l'audit existant
+    audits[existingIndex] = audit;
+  } else {
+    // Ajouter le nouvel audit
+    audits.push(audit);
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(audits));
 };
 
@@ -46,10 +54,12 @@ export const saveAudit = async (audit: Audit): Promise<void> => {
       method: 'POST',
       body: JSON.stringify(audit),
     });
-    // Synchroniser avec localStorage en cas de succès
+    // Synchroniser avec localStorage en cas de succès API
+    // Cela permet d'avoir une copie locale même si Supabase est inaccessible plus tard
     saveToLocalStorage(audit);
   } catch (error) {
     console.warn('API non disponible ou erreur serveur, utilisation du localStorage uniquement:', error);
+    // En cas d'erreur API, sauvegarder dans localStorage pour réessayer plus tard
     saveToLocalStorage(audit);
     // On ne relance pas l'erreur pour que l'interface reste utilisable
   }

@@ -41,10 +41,80 @@ const db = {
     if (error) throw error;
   },
   async deleteAudit(id) {
-    const { error } = await supabase.from('audits').delete().eq('id', id);
-    if (error) throw error;
-    const { data } = await supabase.from('audits').select('id').eq('id', id).single();
-    if (!data) throw new Error('Audit non trouvé');
+    // Vérifier que l'audit existe avant de le supprimer
+    const { data: audit, error: fetchError } = await supabase
+      .from('audits')
+      .select('checkpoints')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !audit) {
+      throw new Error('Audit non trouvé');
+    }
+    
+    // Supprimer les photos associées dans Supabase Storage
+    try {
+      const checkpoints = typeof audit.checkpoints === 'string' 
+        ? JSON.parse(audit.checkpoints) 
+        : audit.checkpoints;
+      
+      if (checkpoints && Array.isArray(checkpoints)) {
+        // Collecter tous les chemins de photos à supprimer
+        const photosToDelete = [];
+        checkpoints.forEach((checkpoint) => {
+          if (checkpoint.photos && Array.isArray(checkpoint.photos)) {
+            checkpoint.photos.forEach((photoUrl) => {
+              // Extraire le chemin du fichier depuis l'URL
+              // Format: https://xxx.supabase.co/storage/v1/object/public/audit-photos/{auditId}/{checkpointId}/{timestamp}.jpg
+              const urlMatch = photoUrl.match(/audit-photos\/(.+)$/);
+              if (urlMatch) {
+                photosToDelete.push(urlMatch[1]);
+              }
+            });
+          }
+        });
+        
+        // Supprimer toutes les photos en une seule opération
+        if (photosToDelete.length > 0) {
+          const { error: storageError } = await supabase.storage
+            .from('audit-photos')
+            .remove(photosToDelete);
+          
+          if (storageError) {
+            console.error('Erreur lors de la suppression des photos:', storageError);
+            // Ne pas bloquer la suppression de l'audit si la suppression des photos échoue
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des photos à supprimer:', error);
+      // Ne pas bloquer la suppression de l'audit si la suppression des photos échoue
+    }
+    
+    // Supprimer l'audit de la base de données
+    const { error: deleteError } = await supabase
+      .from('audits')
+      .delete()
+      .eq('id', id);
+    
+    if (deleteError) throw deleteError;
+    
+    // Vérifier que la suppression a bien été effectuée (optionnel - la suppression peut échouer silencieusement)
+    const { data: deletedAudit, error: verifyError } = await supabase
+      .from('audits')
+      .select('id')
+      .eq('id', id)
+      .single();
+    
+    // Si l'audit existe encore, il y a eu un problème (mais ignore l'erreur 406 si l'audit n'existe pas)
+    if (deletedAudit) {
+      throw new Error('Erreur : l\'audit n\'a pas été supprimé');
+    }
+    
+    // Si l'erreur est autre chose que "not found", c'est un problème
+    if (verifyError && verifyError.code !== 'PGRST116') {
+      console.error('Erreur lors de la vérification de suppression:', verifyError);
+    }
   },
   async getSites() {
     const { data, error } = await supabase.from('sites').select('*').order('name');
@@ -329,8 +399,15 @@ app.post('/api/send-email', async (req, res) => {
     console.log('📧 Requête d\'envoi d\'email reçue');
     const { auditId, to, siteName, auditData } = req.body;
 
-    if (!to || !to.includes('@')) {
-      return res.status(400).json({ error: 'Adresse email invalide' });
+    // Normaliser to en tableau
+    const toArray = Array.isArray(to) ? to : [to];
+    
+    // Valider les emails
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = toArray.filter(e => !e || !emailRegex.test(e));
+    
+    if (invalidEmails.length > 0) {
+      return res.status(400).json({ error: `Adresse(s) email invalide(s): ${invalidEmails.join(', ')}` });
     }
 
     if (!auditData) {
@@ -346,6 +423,9 @@ app.post('/api/send-email', async (req, res) => {
       const fromEmail = process.env.BREVO_FROM_EMAIL || 'houcinefarhane138@gmail.com';
       const fromName = process.env.BREVO_FROM_NAME || 'Audit Qualité';
       
+      // Convertir le tableau d'emails en format Brevo
+      const toBrevo = toArray.map(email => ({ email }));
+      
       const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
@@ -354,7 +434,7 @@ app.post('/api/send-email', async (req, res) => {
         },
         body: JSON.stringify({
           sender: { email: fromEmail, name: fromName },
-          to: [{ email: to }],
+          to: toBrevo, // Tableau d'adresses
           subject: emailSubject,
           htmlContent: emailHtml,
         }),
@@ -384,7 +464,7 @@ app.post('/api/send-email', async (req, res) => {
         },
         body: JSON.stringify({
           from: fromEmail,
-          to: [to],
+          to: toArray, // Tableau d'adresses
           subject: emailSubject,
           html: emailHtml,
         }),
@@ -440,10 +520,32 @@ function generateSingleAuditEmailHtml(audit, siteName) {
   const checkpointsHtml = audit.checkpoints ? audit.checkpoints.map((cp, index) => {
     const statusIcon = cp.status === 'OUI' ? '✓' : cp.status === 'NON' ? '✗' : '?';
     const statusColor = cp.status === 'OUI' ? '#48BB78' : cp.status === 'NON' ? '#F56565' : '#718096';
+    
+    // Générer le HTML pour les photos si elles existent
+    const photosHtml = cp.photos && Array.isArray(cp.photos) && cp.photos.length > 0
+      ? `
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #E2E8F0;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            ${cp.photos.slice(0, 3).map(photoUrl => `
+              <img src="${photoUrl}" 
+                   alt="Photo ${index + 1}" 
+                   style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #CBD5E0; cursor: pointer;"
+                   onclick="window.open('${photoUrl}', '_blank')"
+                   title="Cliquer pour agrandir" />
+            `).join('')}
+            ${cp.photos.length > 3 ? `<span style="font-size: 11px; color: #718096; align-self: center;">+${cp.photos.length - 3} autre(s)</span>` : ''}
+          </div>
+        </div>
+      `
+      : '';
+    
     return `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0;">${index + 1}. ${cp.label}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; text-align: center; color: ${statusColor}; font-weight: bold;">${statusIcon} ${cp.status || 'Non renseigné'}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top;">
+          ${index + 1}. ${cp.label}
+          ${photosHtml}
+        </td>
+        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; text-align: center; color: ${statusColor}; font-weight: bold; vertical-align: top;">${statusIcon} ${cp.status || 'Non renseigné'}</td>
       </tr>
     `;
   }).join('') : '';
@@ -473,6 +575,7 @@ function generateSingleAuditEmailHtml(audit, siteName) {
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin: 20px 0; }
         th { background: #4299E1; color: white; padding: 12px; text-align: left; }
         td { padding: 10px 12px; }
+        img { max-width: 100%; height: auto; }
         .comment-box { background: #FFF5E1; border-left: 4px solid #ED8936; padding: 15px; margin: 20px 0; border-radius: 4px; }
         .footer { text-align: center; padding: 20px; color: #718096; font-size: 12px; background: #EDF2F7; }
       </style>
@@ -570,7 +673,8 @@ function generateActionPlanHtml(audit, anomalies) {
 
   const anomaliesHtml = anomalies.map((anomaly, index) => {
     const actions = actionPlan[anomaly.id] || ['Analyser la cause de l\'anomalie', 'Mettre en place des mesures correctives', 'Suivre l\'efficacité des actions'];
-    const actionsList = actions.map(action => `
+    // Limiter à 2 actions comme dans le PDF
+    const actionsList = actions.slice(0, 2).map(action => `
       <li style="margin: 5px 0; padding-left: 5px;">
         <input type="checkbox" style="margin-right: 8px;"> ${action}
       </li>

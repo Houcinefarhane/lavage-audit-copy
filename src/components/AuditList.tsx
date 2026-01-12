@@ -18,7 +18,7 @@ export const AuditList = ({ refreshTrigger, onRefresh }: AuditListProps) => {
   const [siteNames, setSiteNames] = useState<Record<string, string>>({});
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   const [emailInputVisible, setEmailInputVisible] = useState<string | null>(null);
-  const [emailValue, setEmailValue] = useState<string>('');
+  const [emailValues, setEmailValues] = useState<Record<string, string[]>>({}); // Un tableau d'emails par audit
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
 
   useEffect(() => {
@@ -90,43 +90,109 @@ export const AuditList = ({ refreshTrigger, onRefresh }: AuditListProps) => {
     }
   };
 
-  const handleGeneratePDF = (audit: Audit) => {
+  const handleGeneratePDF = async (audit: Audit) => {
     const siteName = siteNames[audit.siteId] || 'Site inconnu';
-    generateAuditPDF({ audit, siteName });
+    try {
+      await generateAuditPDF({ audit, siteName });
+    } catch (error) {
+      console.error('Erreur lors de la génération du PDF:', error);
+      alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+    }
   };
 
   const handleEmailIconClick = (audit: Audit) => {
     if (emailInputVisible === audit.id) {
       // Si déjà ouvert, fermer
       setEmailInputVisible(null);
-      setEmailValue('');
+      setEmailValues(prev => {
+        const newValues = { ...prev };
+        delete newValues[audit.id];
+        return newValues;
+      });
     } else {
-      // Ouvrir le champ email
+      // Ouvrir le champ email avec un champ vide par défaut
       setEmailInputVisible(audit.id);
-      setEmailValue('');
+      setEmailValues(prev => ({
+        ...prev,
+        [audit.id]: ['']
+      }));
     }
   };
 
+  const handleAddEmailField = (auditId: string) => {
+    setEmailValues(prev => ({
+      ...prev,
+      [auditId]: [...(prev[auditId] || []), '']
+    }));
+  };
+
+  const handleRemoveEmailField = (auditId: string, index: number) => {
+    setEmailValues(prev => {
+      const emails = [...(prev[auditId] || [])];
+      emails.splice(index, 1);
+      if (emails.length === 0) {
+        const newValues = { ...prev };
+        delete newValues[auditId];
+        return newValues;
+      }
+      return {
+        ...prev,
+        [auditId]: emails
+      };
+    });
+  };
+
+  const handleEmailChange = (auditId: string, index: number, value: string) => {
+    setEmailValues(prev => {
+      const emails = [...(prev[auditId] || [])];
+      emails[index] = value;
+      return {
+        ...prev,
+        [auditId]: emails
+      };
+    });
+  };
+
   const handleSendEmail = async (audit: Audit) => {
-    const email = emailValue.trim();
-    if (!email || !email.includes('@')) {
-      alert('Veuillez entrer une adresse email valide.');
+    const emails = emailValues[audit.id] || [];
+    
+    // Filtrer les emails vides et valider
+    const validEmails = emails
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    if (validEmails.length === 0) {
+      alert('Veuillez entrer au moins une adresse email.');
+      return;
+    }
+
+    // Valider chaque email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = validEmails.filter(e => !emailRegex.test(e));
+    
+    if (invalidEmails.length > 0) {
+      alert(`Adresse(s) email invalide(s): ${invalidEmails.join(', ')}`);
       return;
     }
 
     setSendingEmail(audit.id);
     try {
-      console.log('Envoi email en cours...', { auditId: audit.id, email, siteName: siteNames[audit.siteId] });
+      console.log('Envoi email en cours...', { auditId: audit.id, emails: validEmails, siteName: siteNames[audit.siteId] });
       
       // Envoyer les données complètes de l'audit pour éviter "adresse inconnu"
-      const result = await sendAuditEmail(audit.id, email, siteNames[audit.siteId] || 'Site inconnu', audit);
+      const result = await sendAuditEmail(audit.id, validEmails, siteNames[audit.siteId] || 'Site inconnu', audit);
       
       console.log('Réponse serveur:', result);
-      alert('Email envoyé avec succès ! Vérifiez votre boîte de réception (et les spams).');
+      const emailCount = validEmails.length;
+      alert(`Email envoyé avec succès à ${emailCount} destinataire${emailCount > 1 ? 's' : ''} ! Vérifiez votre boîte de réception (et les spams).`);
       
       // Fermer le champ et réinitialiser
       setEmailInputVisible(null);
-      setEmailValue('');
+      setEmailValues(prev => {
+        const newValues = { ...prev };
+        delete newValues[audit.id];
+        return newValues;
+      });
     } catch (error: any) {
       console.error('Erreur détaillée lors de l\'envoi de l\'email:', error);
       const errorMessage = error.message || 'Erreur lors de l\'envoi de l\'email.';
@@ -140,9 +206,13 @@ export const AuditList = ({ refreshTrigger, onRefresh }: AuditListProps) => {
     }
   };
 
-  const handleCancelEmail = () => {
+  const handleCancelEmail = (auditId: string) => {
     setEmailInputVisible(null);
-    setEmailValue('');
+    setEmailValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[auditId];
+      return newValues;
+    });
   };
 
   const handleSiteFilterToggle = (siteId: string) => {
@@ -320,31 +390,56 @@ export const AuditList = ({ refreshTrigger, onRefresh }: AuditListProps) => {
                 className="email-input-container"
               >
                 <div className="email-input-wrapper">
-                  <input
-                    type="email"
-                    className="email-input"
-                    placeholder="Entrez l'adresse email"
-                    value={emailValue}
-                    onChange={(e) => setEmailValue(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSendEmail(audit);
-                      }
-                    }}
-                    autoFocus
-                  />
+                  <div className="email-fields-list">
+                    {(emailValues[audit.id] || ['']).map((email, index) => (
+                      <div key={index} className="email-field-row">
+                        <input
+                          type="email"
+                          className="email-input"
+                          placeholder={`Adresse email ${index + 1}`}
+                          value={email}
+                          onChange={(e) => handleEmailChange(audit.id, index, e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendEmail(audit);
+                            }
+                          }}
+                          autoFocus={index === 0}
+                        />
+                        {(emailValues[audit.id] || []).length > 1 && (
+                          <button
+                            className="btn-remove-email"
+                            onClick={() => handleRemoveEmailField(audit.id, index)}
+                            title="Supprimer cette adresse"
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className="btn-add-email"
+                    onClick={() => handleAddEmailField(audit.id)}
+                    type="button"
+                  >
+                    + Ajouter une autre adresse email
+                  </button>
                   <div className="email-input-actions">
                     <button
                       className="btn-send-email"
                       onClick={() => handleSendEmail(audit)}
-                      disabled={sendingEmail === audit.id || !emailValue.trim()}
+                      disabled={sendingEmail === audit.id || !(emailValues[audit.id] || []).some(e => e.trim())}
                     >
                       {sendingEmail === audit.id ? 'Envoi...' : 'Envoyer'}
                     </button>
                     <button
                       className="btn-cancel-email"
-                      onClick={handleCancelEmail}
+                      onClick={() => handleCancelEmail(audit.id)}
                       disabled={sendingEmail === audit.id}
+                      type="button"
                     >
                       Annuler
                     </button>

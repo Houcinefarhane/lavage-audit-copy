@@ -14,9 +14,11 @@ export const AuditForm = ({ onSave }: AuditFormProps) => {
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('');
   const [comment, setComment] = useState<string>('');
+  const [auditId] = useState<string>(() => Date.now().toString());
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>(
-    CHECKPOINTS.map(cp => ({ ...cp, status: null }))
+    CHECKPOINTS.map(cp => ({ ...cp, status: null, photos: [] }))
   );
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
   useEffect(() => {
     const loadSites = async () => {
@@ -40,6 +42,37 @@ export const AuditForm = ({ onSave }: AuditFormProps) => {
     );
   };
 
+  const handleLabelChange = (id: string, label: string) => {
+    setCheckpoints(prev =>
+      prev.map(cp => (cp.id === id ? { ...cp, label } : cp))
+    );
+  };
+
+  const handleDeleteCheckpoint = (id: string) => {
+    if (checkpoints.length <= 1) {
+      alert('Vous devez garder au moins un point de contrôle.');
+      return;
+    }
+    setCheckpoints(prev => prev.filter(cp => cp.id !== id));
+  };
+
+  const handleAddCheckpoint = () => {
+    const newId = `checkpoint-${Date.now()}`;
+    const newCheckpoint: Checkpoint = {
+      id: newId,
+      label: 'Nouveau point de contrôle',
+      status: null,
+      photos: [],
+    };
+    setCheckpoints(prev => [...prev, newCheckpoint]);
+  };
+
+  const handlePhotosChange = (checkpointId: string, photos: string[]) => {
+    setCheckpoints(prev =>
+      prev.map(cp => (cp.id === checkpointId ? { ...cp, photos } : cp))
+    );
+  };
+
   const calculateScore = (): number => {
     const ouiCount = checkpoints.filter(cp => cp.status === 'OUI').length;
     return Math.round((ouiCount / checkpoints.length) * 100);
@@ -51,8 +84,13 @@ export const AuditForm = ({ onSave }: AuditFormProps) => {
       return;
     }
 
+    if (uploadingPhotos) {
+      alert('Veuillez attendre la fin de l\'upload des photos.');
+      return;
+    }
+
     const audit: Audit = {
-      id: Date.now().toString(),
+      id: auditId,
       date: new Date().toISOString(),
       siteId: selectedSiteId,
       comment: comment.trim() || undefined,
@@ -66,8 +104,11 @@ export const AuditForm = ({ onSave }: AuditFormProps) => {
       onSave();
       
       // Reset form
-      setCheckpoints(CHECKPOINTS.map(cp => ({ ...cp, status: null })));
+      setCheckpoints(CHECKPOINTS.map(cp => ({ ...cp, status: null, photos: [] })));
       setComment('');
+      if (sites.length > 0) {
+        setSelectedSiteId(sites[0].id);
+      }
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
       alert('Erreur lors de la sauvegarde de l\'audit. Veuillez réessayer.');
@@ -150,18 +191,41 @@ export const AuditForm = ({ onSave }: AuditFormProps) => {
             <CheckpointItem
               checkpoint={checkpoint}
               onStatusChange={handleStatusChange}
+              onLabelChange={handleLabelChange}
+              onDelete={handleDeleteCheckpoint}
+              canDelete={checkpoints.length > 1}
+              auditId={auditId}
+              onPhotosChange={handlePhotosChange}
+              onUploadStateChange={setUploadingPhotos}
             />
           </motion.div>
         ))}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <button
+            className="btn-add-checkpoint"
+            onClick={handleAddCheckpoint}
+            type="button"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Ajouter un point de contrôle
+          </button>
+        </motion.div>
       </div>
 
       <div className="form-actions">
         <button
           className="btn-save"
           onClick={handleSave}
-          disabled={!canSave}
+          disabled={!canSave || uploadingPhotos}
         >
-          Enregistrer l'audit
+          {uploadingPhotos ? 'Upload en cours...' : 'Enregistrer l\'audit'}
         </button>
         {!canSave && (
           <p className="warning-text">

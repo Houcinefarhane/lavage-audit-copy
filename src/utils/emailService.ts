@@ -2,7 +2,7 @@
 
 export const sendAuditEmail = async (
   auditId: string,
-  to: string,
+  to: string | string[], // Accepter une adresse unique ou un tableau d'adresses
   siteName: string,
   auditData?: any
 ): Promise<void> => {
@@ -10,8 +10,11 @@ export const sendAuditEmail = async (
     // Utiliser l'URL relative en production, localhost en dev
     const apiUrl = import.meta.env.PROD ? '/api/send-email' : 'http://localhost:3015/api/send-email';
     
+    // Normaliser en tableau
+    const toArray = Array.isArray(to) ? to : [to];
+    
     console.log('Envoi requête email à:', apiUrl);
-    console.log('Données envoyées:', { auditId, to, siteName, hasAuditData: !!auditData });
+    console.log('Données envoyées:', { auditId, to: toArray, siteName, hasAuditData: !!auditData });
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -20,7 +23,7 @@ export const sendAuditEmail = async (
       },
       body: JSON.stringify({
         auditId,
-        to,
+        to: toArray, // Envoyer un tableau d'adresses
         siteName,
         auditData, // Envoyer les données complètes de l'audit
       }),

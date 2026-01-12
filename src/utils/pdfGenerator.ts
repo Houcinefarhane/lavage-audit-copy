@@ -6,7 +6,31 @@ interface GeneratePDFOptions {
   siteName: string;
 }
 
-export const generateAuditPDF = ({ audit, siteName }: GeneratePDFOptions): void => {
+// Fonction pour charger une image depuis une URL et la convertir en base64
+const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Impossible de charger l'image: ${url}`);
+      return null;
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error(`Erreur lors du chargement de l'image ${url}:`, error);
+    return null;
+  }
+};
+
+export const generateAuditPDF = async ({ audit, siteName }: GeneratePDFOptions): Promise<void> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -127,11 +151,14 @@ export const generateAuditPDF = ({ audit, siteName }: GeneratePDFOptions): void 
   const colX = margin;
   let currentY = yPosition;
 
-  audit.checkpoints.forEach((checkpoint, index) => {
+  // Traiter chaque checkpoint avec support des photos
+  for (let index = 0; index < audit.checkpoints.length; index++) {
+    const checkpoint = audit.checkpoints[index];
+    
     // Vérifier si on dépasse la hauteur disponible
     if (currentY > pageHeight - 50) {
       // Si on dépasse, on ne peut pas continuer
-      return;
+      break;
     }
     
     const status = checkpoint.status;
@@ -161,7 +188,71 @@ export const generateAuditPDF = ({ audit, siteName }: GeneratePDFOptions): void 
     doc.setTextColor(0, 0, 0);
     
     currentY += 5; // Espacement entre les checkpoints
-  });
+    
+    // Ajouter les photos si elles existent
+    if (checkpoint.photos && checkpoint.photos.length > 0) {
+      // Vérifier si on a besoin d'une nouvelle page
+      if (currentY + 25 > pageHeight - 20) {
+        doc.addPage();
+        currentY = margin;
+      }
+      
+      const photoSize = 25; // Taille des miniatures (en mm)
+      const photosPerRow = Math.floor((pageWidth - 2 * margin) / (photoSize + 3));
+      const startX = colX + 5; // Indentation pour les photos
+      let photoX = startX;
+      let photoY = currentY;
+      
+      // Limiter à 3 photos max pour éviter de surcharger le PDF
+      const photosToShow = checkpoint.photos.slice(0, 3);
+      
+      for (let photoIndex = 0; photoIndex < photosToShow.length; photoIndex++) {
+        const photoUrl = photosToShow[photoIndex];
+        
+        // Vérifier si on a besoin d'une nouvelle ligne
+        if (photoIndex > 0 && photoIndex % photosPerRow === 0) {
+          photoX = startX;
+          photoY += photoSize + 3;
+          
+          // Vérifier si on dépasse la hauteur de page
+          if (photoY + photoSize > pageHeight - 20) {
+            doc.addPage();
+            photoY = margin;
+            photoX = startX;
+          }
+        }
+        
+        try {
+          // Charger l'image et l'ajouter au PDF
+          const base64Image = await loadImageAsBase64(photoUrl);
+          if (base64Image) {
+            // Dessiner un cadre autour de la photo
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(photoX, photoY, photoSize, photoSize, 'S');
+            
+            // Ajouter l'image
+            doc.addImage(base64Image, 'JPEG', photoX, photoY, photoSize, photoSize);
+          }
+        } catch (error) {
+          console.error(`Erreur lors de l'ajout de la photo ${photoUrl}:`, error);
+        }
+        
+        photoX += photoSize + 3;
+      }
+      
+      // Ajuster la position Y pour le prochain checkpoint
+      currentY = photoY + photoSize + 5;
+      
+      // Si on a affiché moins de photos qu'il n'y en a, indiquer qu'il y en a plus
+      if (checkpoint.photos.length > 3) {
+        doc.setFontSize(7);
+        doc.setTextColor(128, 128, 128);
+        doc.text(`+${checkpoint.photos.length - 3} photo(s) supplémentaire(s)`, startX, currentY);
+        currentY += 4;
+      }
+    }
+  }
 
   // Utiliser la position finale
   yPosition = currentY + 3;

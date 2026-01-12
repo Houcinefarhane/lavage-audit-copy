@@ -288,7 +288,8 @@ function generateActionPlanHtml(audit) {
       'Suivre l\'efficacité des actions'
     ];
 
-    const actionsList = actions.map(action => `
+    // Limiter à 2 actions comme dans le PDF
+    const actionsList = actions.slice(0, 2).map(action => `
       <li style="margin: 5px 0; padding-left: 5px;">
         <input type="checkbox" style="margin-right: 8px;"> ${action}
       </li>

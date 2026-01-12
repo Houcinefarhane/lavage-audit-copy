@@ -25,6 +25,7 @@ export const Dashboard = () => {
   const [selectedSiteFilter, setSelectedSiteFilter] = useState<string>('all');
   const [sites, setSites] = useState<Site[]>([]);
   const [audits, setAudits] = useState<any[]>([]);
+  const [allAudits, setAllAudits] = useState<any[]>([]); // Tous les audits pour le graphique par site
   const [selectedSiteName, setSelectedSiteName] = useState<string>('');
 
   useEffect(() => {
@@ -32,6 +33,10 @@ export const Dashboard = () => {
       try {
         const loadedSites = await getSites();
         setSites(loadedSites);
+        // Charger tous les audits pour le graphique d'évolution par site
+        const allAuditsData = await getAudits();
+        setAllAudits(allAuditsData);
+        // Charger les audits filtrés pour les autres graphiques
         const loadedAudits = await getAudits(selectedSiteFilter !== 'all' ? selectedSiteFilter : undefined);
         setAudits(loadedAudits);
         if (selectedSiteFilter !== 'all') {
@@ -80,7 +85,7 @@ export const Dashboard = () => {
     // Grouper par jour et calculer la moyenne
     const dailyData: Record<string, { date: string; scores: number[]; oui: number; non: number }> = {};
     
-    // Initialiser tous les jours du mois
+    // Initialiser tous les jours du mois (30 derniers jours)
     for (let i = 29; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(now.getDate() - i);
@@ -104,17 +109,20 @@ export const Dashboard = () => {
     });
 
     // Convertir en tableau avec score moyen par jour
-    const lastMonth = Object.values(dailyData).map((day) => ({
-      date: new Date(day.date).toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-      }),
-      score: day.scores.length > 0 
-        ? Math.round(day.scores.reduce((sum, s) => sum + s, 0) / day.scores.length)
-        : 0,
-      oui: day.oui,
-      non: day.non,
-    }));
+    // Pour les jours sans audit, mettre null au lieu de 0 pour ne pas fausser la tendance
+    const lastMonth = Object.values(dailyData)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((day) => ({
+        date: new Date(day.date).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+        }),
+        score: day.scores.length > 0 
+          ? Math.round(day.scores.reduce((sum, s) => sum + s, 0) / day.scores.length)
+          : null, // null au lieu de 0 pour les jours sans audit
+        oui: day.oui,
+        non: day.non,
+      }));
 
     // Répartition par score
     const scoreDistribution = [
@@ -138,6 +146,77 @@ export const Dashboard = () => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
+    // Évolution par site - grouper les audits par site et calculer l'évolution dans le temps
+    const siteEvolutionData: Record<string, { siteName: string; audits: any[] }> = {};
+    
+    // Grouper les audits par site
+    allAudits.forEach((audit) => {
+      if (!siteEvolutionData[audit.siteId]) {
+        const site = sites.find(s => s.id === audit.siteId);
+        siteEvolutionData[audit.siteId] = {
+          siteName: site?.name || `Site ${audit.siteId}`,
+          audits: [],
+        };
+      }
+      siteEvolutionData[audit.siteId].audits.push(audit);
+    });
+
+    // Trier les audits par date pour chaque site
+    Object.keys(siteEvolutionData).forEach(siteId => {
+      siteEvolutionData[siteId].audits.sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+    });
+
+    // Créer les données pour le graphique : pour chaque date, calculer le score moyen cumulé par site
+    const allDates = new Set<string>();
+    allAudits.forEach(audit => {
+      const dateKey = new Date(audit.date).toISOString().split('T')[0];
+      allDates.add(dateKey);
+    });
+    
+    const sortedDates = Array.from(allDates).sort();
+    
+    // Limiter aux 10 sites les plus actifs pour éviter la surcharge du graphique
+    const siteActivity = Object.entries(siteEvolutionData)
+      .map(([siteId, data]) => ({
+        siteId,
+        siteName: data.siteName,
+        auditCount: data.audits.length,
+        siteKey: `site_${siteId}`, // Clé unique pour le graphique
+      }))
+      .sort((a, b) => b.auditCount - a.auditCount)
+      .slice(0, 10);
+
+    // Pour chaque date, calculer le score moyen cumulé jusqu'à cette date pour chaque site
+    const siteEvolutionChart: Array<Record<string, any>> = [];
+    
+    sortedDates.forEach(date => {
+      const dateEntry: Record<string, any> = {
+        date: new Date(date).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+        }),
+      };
+      
+      // Pour chaque site actif, calculer le score moyen cumulé jusqu'à cette date
+      siteActivity.forEach(site => {
+        const siteAudits = siteEvolutionData[site.siteId].audits.filter(a => {
+          const auditDate = new Date(a.date).toISOString().split('T')[0];
+          return auditDate <= date;
+        });
+        
+        if (siteAudits.length > 0) {
+          const avgScore = Math.round(
+            siteAudits.reduce((sum, a) => sum + a.score, 0) / siteAudits.length
+          );
+          dateEntry[site.siteKey] = avgScore;
+        }
+      });
+      
+      siteEvolutionChart.push(dateEntry);
+    });
+
     return {
       totalAudits,
       avgScore,
@@ -148,8 +227,11 @@ export const Dashboard = () => {
       lastMonth,
       scoreDistribution,
       topIssues,
+      siteEvolutionChart,
+      siteActivity,
+      siteEvolutionData,
     };
-  }, [selectedSiteFilter, audits]);
+  }, [selectedSiteFilter, audits, allAudits, sites]);
 
   return (
     <div className="dashboard">
@@ -243,22 +325,54 @@ export const Dashboard = () => {
 
       {/* Graphiques */}
       <div className="charts-grid">
-        {/* Évolution sur 7 jours */}
+        {/* Évolution sur 30 jours */}
         <div className="chart-card">
           <h3>Évolution du Score (30 derniers jours)</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={stats.lastMonth}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis domain={[0, 100]} />
-              <Tooltip />
+            <LineChart 
+              data={stats.lastMonth}
+              margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+              <XAxis 
+                dataKey="date" 
+                stroke="#6b7280"
+                fontSize={12}
+                tickLine={{ stroke: '#6b7280' }}
+                interval="preserveStartEnd"
+              />
+              <YAxis 
+                domain={[0, 100]} 
+                stroke="#6b7280"
+                fontSize={12}
+                tickLine={{ stroke: '#6b7280' }}
+                label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280' } }}
+              />
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                }}
+                formatter={(value: any) => {
+                  if (value === null || value === undefined) return ['Aucun audit', ''];
+                  return [`${value}%`, 'Score'];
+                }}
+                labelStyle={{ fontWeight: 600, color: '#374151' }}
+              />
               <Legend />
               <Line
                 type="monotone"
                 dataKey="score"
                 stroke="#2563eb"
-                strokeWidth={2}
+                strokeWidth={3}
+                dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ r: 6, fill: '#2563eb' }}
                 name="Score (%)"
+                connectNulls={true}
+                isAnimationActive={true}
+                animationDuration={1000}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -286,22 +400,38 @@ export const Dashboard = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={stats.scoreDistribution}
+                data={stats.scoreDistribution.filter(item => item.value > 0)}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) =>
-                  `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`
-                }
+                label={false}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {stats.scoreDistribution.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
+                {stats.scoreDistribution
+                  .filter(item => item.value > 0)
+                  .map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
               </Pie>
-              <Tooltip />
+              <Tooltip 
+                formatter={(value: number, name: string) => [
+                  `${value} audit${value > 1 ? 's' : ''}`,
+                  name
+                ]}
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                formatter={(value: string) => {
+                  const total = stats.scoreDistribution.reduce((sum, item) => sum + item.value, 0);
+                  const item = stats.scoreDistribution.find(item => item.name === value);
+                  const count = item?.value || 0;
+                  const percent = total > 0 ? ((count / total) * 100).toFixed(0) : '0';
+                  return `${value}: ${count} (${percent}%)`;
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -323,6 +453,56 @@ export const Dashboard = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Évolution par site */}
+        {stats.siteEvolutionChart.length > 0 && stats.siteActivity.length > 0 && (
+          <div className="chart-card" style={{ gridColumn: '1 / -1' }}>
+            <h3>Évolution du Score Moyen par Site</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Affichage des {Math.min(stats.siteActivity.length, 10)} sites les plus actifs
+            </p>
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={stats.siteEvolutionChart} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval="preserveStartEnd"
+                />
+                <YAxis domain={[0, 100]} />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    const site = stats.siteActivity.find(s => s.siteKey === name);
+                    return [`${value}%`, site?.siteName || name];
+                  }}
+                />
+                <Legend 
+                  formatter={(value: string) => {
+                    const site = stats.siteActivity.find(s => s.siteKey === value);
+                    return site?.siteName || value;
+                  }}
+                />
+                {stats.siteActivity.map((site, index) => {
+                  const colorIndex = index % COLORS.length;
+                  return (
+                    <Line
+                      key={site.siteId}
+                      type="monotone"
+                      dataKey={site.siteKey}
+                      stroke={COLORS[colorIndex]}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      name={site.siteName}
+                      connectNulls
+                    />
+                  );
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
       </div>
     </div>

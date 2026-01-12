@@ -4,6 +4,7 @@ export interface Checkpoint {
   id: string;
   label: string;
   status: CheckpointStatus;
+  photos?: string[];
 }
 
 export interface Audit {

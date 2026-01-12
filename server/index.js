@@ -246,12 +246,19 @@ app.post('/api/send-email', async (req, res) => {
     console.log('📧 Requête d\'envoi d\'email reçue');
     const { auditId, to, siteName, auditData } = req.body;
 
-    console.log('Données reçues:', { auditId, to, siteName, hasAuditData: !!auditData });
-
-    if (!to || !to.includes('@')) {
-      console.error('Email invalide:', to);
-      return res.status(400).json({ error: 'Adresse email invalide' });
+    // Normaliser to en tableau
+    const toArray = Array.isArray(to) ? to : [to];
+    
+    // Valider les emails
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = toArray.filter(e => !e || !emailRegex.test(e));
+    
+    if (invalidEmails.length > 0) {
+      console.error('Emails invalides:', invalidEmails);
+      return res.status(400).json({ error: `Adresse(s) email invalide(s): ${invalidEmails.join(', ')}` });
     }
+
+    console.log('Données reçues:', { auditId, to: toArray, siteName, hasAuditData: !!auditData });
 
     if (!auditData) {
       console.error('Données audit manquantes');
@@ -269,7 +276,10 @@ app.post('/api/send-email', async (req, res) => {
       const fromEmail = process.env.BREVO_FROM_EMAIL || 'houcinefarhane138@gmail.com';
       const fromName = process.env.BREVO_FROM_NAME || 'Audit Qualité';
       
-      console.log('Envoi via Brevo à:', to, 'depuis:', fromEmail);
+      // Convertir le tableau d'emails en format Brevo
+      const toBrevo = toArray.map(email => ({ email }));
+      
+      console.log('Envoi via Brevo à:', toArray, 'depuis:', fromEmail);
 
       const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -279,7 +289,7 @@ app.post('/api/send-email', async (req, res) => {
         },
         body: JSON.stringify({
           sender: { email: fromEmail, name: fromName },
-          to: [{ email: to }],
+          to: toBrevo, // Tableau d'adresses
           subject: emailSubject,
           htmlContent: emailHtml,
         }),
@@ -307,7 +317,10 @@ app.post('/api/send-email', async (req, res) => {
       console.log('✅ SENDGRID_API_KEY trouvée, envoi via SendGrid...');
       const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'houcinefarhane138@gmail.com';
       
-      console.log('Envoi via SendGrid à:', to, 'depuis:', fromEmail);
+      // Convertir le tableau d'emails en format SendGrid
+      const toSendGrid = toArray.map(email => ({ email }));
+      
+      console.log('Envoi via SendGrid à:', toArray, 'depuis:', fromEmail);
 
       const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
@@ -317,7 +330,7 @@ app.post('/api/send-email', async (req, res) => {
         },
         body: JSON.stringify({
           personalizations: [{
-            to: [{ email: to }],
+            to: toSendGrid, // Tableau d'adresses
             subject: emailSubject,
           }],
           from: { email: fromEmail, name: 'Audit Qualité' },
@@ -348,7 +361,7 @@ app.post('/api/send-email', async (req, res) => {
       console.log('✅ RESEND_API_KEY trouvée, envoi via Resend...');
       const fromEmail = process.env.RESEND_FROM_EMAIL || 'Audit Qualité <onboarding@resend.dev>';
 
-      console.log('Envoi via Resend à:', to, 'depuis:', fromEmail);
+      console.log('Envoi via Resend à:', toArray, 'depuis:', fromEmail);
 
       const resendResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -358,7 +371,7 @@ app.post('/api/send-email', async (req, res) => {
         },
         body: JSON.stringify({
           from: fromEmail,
-          to: [to],
+          to: toArray, // Tableau d'adresses
           subject: emailSubject,
           html: emailHtml,
         }),
@@ -432,10 +445,32 @@ function generateSingleAuditEmailHtml(audit, siteName) {
   const checkpointsHtml = audit.checkpoints ? audit.checkpoints.map((cp, index) => {
     const statusIcon = cp.status === 'OUI' ? '✓' : cp.status === 'NON' ? '✗' : '?';
     const statusColor = cp.status === 'OUI' ? '#48BB78' : cp.status === 'NON' ? '#F56565' : '#718096';
+    
+    // Générer le HTML pour les photos si elles existent
+    const photosHtml = cp.photos && Array.isArray(cp.photos) && cp.photos.length > 0
+      ? `
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #E2E8F0;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            ${cp.photos.slice(0, 3).map(photoUrl => `
+              <img src="${photoUrl}" 
+                   alt="Photo ${index + 1}" 
+                   style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #CBD5E0; cursor: pointer;"
+                   onclick="window.open('${photoUrl}', '_blank')"
+                   title="Cliquer pour agrandir" />
+            `).join('')}
+            ${cp.photos.length > 3 ? `<span style="font-size: 11px; color: #718096; align-self: center;">+${cp.photos.length - 3} autre(s)</span>` : ''}
+          </div>
+        </div>
+      `
+      : '';
+    
     return `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0;">${index + 1}. ${cp.label}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; text-align: center; color: ${statusColor}; font-weight: bold;">${statusIcon} ${cp.status || 'Non renseigné'}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top;">
+          ${index + 1}. ${cp.label}
+          ${photosHtml}
+        </td>
+        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; text-align: center; color: ${statusColor}; font-weight: bold; vertical-align: top;">${statusIcon} ${cp.status || 'Non renseigné'}</td>
       </tr>
     `;
   }).join('') : '';
@@ -465,6 +500,7 @@ function generateSingleAuditEmailHtml(audit, siteName) {
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin: 20px 0; }
         th { background: #4299E1; color: white; padding: 12px; text-align: left; }
         td { padding: 10px 12px; }
+        img { max-width: 100%; height: auto; }
         .comment-box { background: #FFF5E1; border-left: 4px solid #ED8936; padding: 15px; margin: 20px 0; border-radius: 4px; }
         .footer { text-align: center; padding: 20px; color: #718096; font-size: 12px; background: #EDF2F7; }
       </style>
@@ -562,7 +598,8 @@ function generateActionPlanHtml(audit, anomalies) {
 
   const anomaliesHtml = anomalies.map((anomaly, index) => {
     const actions = actionPlan[anomaly.id] || ['Analyser la cause de l\'anomalie', 'Mettre en place des mesures correctives', 'Suivre l\'efficacité des actions'];
-    const actionsList = actions.map(action => `
+    // Limiter à 2 actions comme dans le PDF
+    const actionsList = actions.slice(0, 2).map(action => `
       <li style="margin: 5px 0; padding-left: 5px;">
         <input type="checkbox" style="margin-right: 8px;"> ${action}
       </li>

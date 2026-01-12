@@ -4,7 +4,7 @@
 # Exclut les dossiers lourds (node_modules, dist, .git, etc.)
 
 PROJECT_DIR="/Users/houcinefarhane/papa-app"
-ZIP_NAME="twip-audit-project.zip"
+ZIP_NAME="lavage-audit-project.zip"
 TEMP_DIR=$(mktemp -d)
 
 echo "📦 Création d'un fichier ZIP partageable..."
@@ -25,13 +25,13 @@ rsync -av --progress \
   --exclude='.env' \
   --exclude='.env.local' \
   --exclude='server/.env' \
-  "$PROJECT_DIR/" "$TEMP_DIR/twip-audit/"
+  "$PROJECT_DIR/" "$TEMP_DIR/lavage-audit/"
 
 # Créer le ZIP
 echo ""
 echo "🗜️  Compression..."
 cd "$TEMP_DIR"
-zip -r "$PROJECT_DIR/$ZIP_NAME" twip-audit/ -q
+zip -r "$PROJECT_DIR/$ZIP_NAME" lavage-audit/ -q
 
 # Nettoyer
 rm -rf "$TEMP_DIR"

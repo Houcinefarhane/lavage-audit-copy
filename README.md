@@ -4,7 +4,7 @@ Application web pour la gestion des audits qualité dans les centres de lavage a
 
 ## Déploiement
 
-Application déployée sur Vercel : **https://twip-audit.vercel.app**
+Application déployée sur Vercel : **https://lavage-audit.vercel.app**
 
 ## Stack Technique
 

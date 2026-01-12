@@ -1,4 +1,4 @@
-# TWIP Audit - Application d'Audit Qualité
+# Application d'Audit Qualité
 
 Application web pour la gestion des audits qualité dans les centres de lavage automobile.
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FinancialTransaction, FinancialSummary } from '../types';
+import { FinancialTransaction } from '../types';
 import { getSites } from '../utils/siteStorage';
 import type { Site } from '../utils/sites';
 import {

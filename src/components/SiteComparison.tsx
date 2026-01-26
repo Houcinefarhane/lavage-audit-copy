@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { getSites } from '../utils/siteStorage';
 import { getAudits } from '../utils/storage';
 import type { Site } from '../utils/sites';
@@ -228,7 +228,7 @@ export const SiteComparison = () => {
               />
               <Legend />
               <Bar dataKey={getMetricKey()} name={getMetricLabel()}>
-                {chartData.slice(0, 10).map((entry, index) => (
+                {chartData.slice(0, 10).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>

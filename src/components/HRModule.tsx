@@ -190,9 +190,9 @@ export const HRModule = () => {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthShifts = shifts.filter(s => {
       const shiftDate = new Date(s.date);
-      return shiftDate >= monthStart && s.hours > 0;
+      return shiftDate >= monthStart && (s.hours ?? 0) > 0;
     });
-    const totalHours = monthShifts.reduce((sum, s) => sum + s.hours, 0);
+    const totalHours = monthShifts.reduce((sum, s) => sum + (s.hours ?? 0), 0);
 
     return {
       total: filteredEmployees.length,
@@ -471,12 +471,12 @@ export const HRModule = () => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {Object.entries(stats.byPosition).map((entry, index) => (
+                {Object.entries(stats.byPosition).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

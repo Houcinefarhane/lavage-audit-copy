@@ -17,6 +17,105 @@ export interface Audit {
   totalCheckpoints: number;
 }
 
+// Types pour le module Finance/CA
+export interface FinancialTransaction {
+  id: string;
+  siteId: string;
+  date: string;
+  type: 'revenue' | 'expense';
+  category: string;
+  amount: number;
+  description?: string;
+  createdAt: string;
+}
+
+export interface FinancialSummary {
+  siteId: string;
+  period: string; // 'day' | 'week' | 'month' | 'year'
+  revenue: number;
+  expenses: number;
+  profit: number;
+}
+
+// Types pour le module Équipements
+export type EquipmentStatus = 'operational' | 'maintenance' | 'broken' | 'warning';
+export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface Equipment {
+  id: string;
+  siteId: string;
+  name: string;
+  type: string; // 'terminal' | 'machine' | 'pompe' | 'aspirateur' | 'other'
+  status: EquipmentStatus;
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  serialNumber?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface EquipmentAlert {
+  id: string;
+  equipmentId: string;
+  siteId: string;
+  severity: AlertSeverity;
+  message: string;
+  type: 'maintenance_due' | 'breakdown' | 'warning' | 'other';
+  resolved: boolean;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+// Types pour le module Paiements
+export interface PaymentTransaction {
+  id: string;
+  siteId: string;
+  terminalId: string;
+  date: string;
+  amount: number;
+  paymentMethod: 'card' | 'cash' | 'mobile' | 'other';
+  serviceType: string; // Type de lavage
+  transactionId?: string;
+  createdAt: string;
+}
+
+export interface Terminal {
+  id: string;
+  siteId: string;
+  name: string;
+  type: string;
+  status: 'active' | 'inactive' | 'maintenance';
+  lastSync?: string;
+  createdAt: string;
+}
+
+// Types pour le module RH
+export interface Employee {
+  id: string;
+  siteId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  position: string; // 'manager' | 'operator' | 'technician' | 'other'
+  hireDate: string;
+  status: 'active' | 'inactive' | 'on_leave';
+  salary?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface EmployeeShift {
+  id: string;
+  employeeId: string;
+  siteId: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  hours?: number;
+  notes?: string;
+}
+
 export const CHECKPOINTS: Omit<Checkpoint, 'status'>[] = [
   { id: 'accueil-souriant', label: 'Accueil souriant' },
   { id: 'epi-chaussures', label: 'EPI & chaussures sécurité' },

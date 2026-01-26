@@ -4,6 +4,11 @@ import { AuditForm } from './components/AuditForm';
 import { AuditList } from './components/AuditList';
 import { Dashboard } from './components/Dashboard';
 import { SiteManagement } from './components/SiteManagement';
+import { FinanceModule } from './components/FinanceModule';
+import { EquipmentModule } from './components/EquipmentModule';
+import { SiteComparison } from './components/SiteComparison';
+import { PaymentModule } from './components/PaymentModule';
+import { HRModule } from './components/HRModule';
 import { Login } from './components/Login';
 import './App.css';
 
@@ -11,7 +16,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites' | 'finance' | 'equipment' | 'comparison' | 'payments' | 'hr'>('dashboard');
 
   // Vérifier l'authentification au chargement
   useEffect(() => {
@@ -89,7 +94,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-top">
-          <h1>Audit Qualité - Centre de Lavage</h1>
+          <h1>Plateforme Gestion Multi-Sites - Franchisés Lavage</h1>
           <button
             className="btn-logout"
             onClick={handleLogout}
@@ -111,6 +116,12 @@ function App() {
             Tableau de Bord
           </button>
           <button
+            className={`nav-button ${activeTab === 'comparison' ? 'active' : ''}`}
+            onClick={() => setActiveTab('comparison')}
+          >
+            Comparaison
+          </button>
+          <button
             className={`nav-button ${activeTab === 'form' ? 'active' : ''}`}
             onClick={() => setActiveTab('form')}
           >
@@ -121,6 +132,30 @@ function App() {
             onClick={() => setActiveTab('list')}
           >
             Historique
+          </button>
+          <button
+            className={`nav-button ${activeTab === 'finance' ? 'active' : ''}`}
+            onClick={() => setActiveTab('finance')}
+          >
+            Finance
+          </button>
+          <button
+            className={`nav-button ${activeTab === 'payments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('payments')}
+          >
+            Paiements
+          </button>
+          <button
+            className={`nav-button ${activeTab === 'equipment' ? 'active' : ''}`}
+            onClick={() => setActiveTab('equipment')}
+          >
+            Équipements
+          </button>
+          <button
+            className={`nav-button ${activeTab === 'hr' ? 'active' : ''}`}
+            onClick={() => setActiveTab('hr')}
+          >
+            RH
           </button>
           <button
             className={`nav-button ${activeTab === 'sites' ? 'active' : ''}`}
@@ -175,6 +210,61 @@ function App() {
               transition={{ duration: 0.3 }}
             >
               <SiteManagement />
+            </motion.div>
+          )}
+          {activeTab === 'finance' && (
+            <motion.div
+              key="finance"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <FinanceModule />
+            </motion.div>
+          )}
+          {activeTab === 'equipment' && (
+            <motion.div
+              key="equipment"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <EquipmentModule />
+            </motion.div>
+          )}
+          {activeTab === 'comparison' && (
+            <motion.div
+              key="comparison"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SiteComparison />
+            </motion.div>
+          )}
+          {activeTab === 'payments' && (
+            <motion.div
+              key="payments"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <PaymentModule />
+            </motion.div>
+          )}
+          {activeTab === 'hr' && (
+            <motion.div
+              key="hr"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <HRModule />
             </motion.div>
           )}
         </AnimatePresence>

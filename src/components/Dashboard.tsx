@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  
 } from 'recharts';
 // Données dummy supprimées pour utiliser uniquement les vraies données
 import { getAudits } from '../utils/storage';

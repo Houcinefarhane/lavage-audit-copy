@@ -10,6 +10,7 @@ import { SiteComparison } from './components/SiteComparison';
 import { PaymentModule } from './components/PaymentModule';
 import { HRModule } from './components/HRModule';
 import { Login } from './components/Login';
+import { LandingPage } from './components/LandingPage';
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites' | 'finance' | 'equipment' | 'comparison' | 'payments' | 'hr'>('dashboard');
+  const [showLanding, setShowLanding] = useState(true);
 
   // Vérifier l'authentification au chargement
   useEffect(() => {
@@ -86,6 +88,18 @@ function App() {
     );
   }
 
+  // Étape 1 : Landing publique tant que l'utilisateur n'a pas cliqué sur "Se connecter"
+  if (!isAuthenticated && showLanding) {
+    return (
+      <LandingPage
+        onGetStarted={() => {
+          setShowLanding(false);
+        }}
+      />
+    );
+  }
+
+  // Étape 2 : écran de login
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }

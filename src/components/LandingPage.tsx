@@ -14,11 +14,6 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       title: 'Audits Qualité',
       description: 'Suivez et pilotez la qualité de vos centres avec des audits détaillés et des rapports en temps réel.',
     },
-    {
-      icon: '📈',
-      title: 'Comparaison Multi-Sites',
-      description: 'Comparez les performances de vos différents sites et identifiez les meilleures pratiques.',
-    },
   ];
 
   const stats = [

@@ -4,7 +4,6 @@ import { AuditForm } from './components/AuditForm';
 import { AuditList } from './components/AuditList';
 import { Dashboard } from './components/Dashboard';
 import { SiteManagement } from './components/SiteManagement';
-import { SiteComparison } from './components/SiteComparison';
 import { Login } from './components/Login';
 import { LandingPage } from './components/LandingPage';
 import './App.css';
@@ -13,7 +12,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites' | 'comparison'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites'>('dashboard');
   const [showLanding, setShowLanding] = useState(true);
 
   // Vérifier l'authentification au chargement
@@ -126,12 +125,6 @@ function App() {
             Tableau de Bord
           </button>
           <button
-            className={`nav-button ${activeTab === 'comparison' ? 'active' : ''}`}
-            onClick={() => setActiveTab('comparison')}
-          >
-            Comparaison
-          </button>
-          <button
             className={`nav-button ${activeTab === 'form' ? 'active' : ''}`}
             onClick={() => setActiveTab('form')}
           >
@@ -196,17 +189,6 @@ function App() {
               transition={{ duration: 0.3 }}
             >
               <SiteManagement />
-            </motion.div>
-          )}
-          {activeTab === 'comparison' && (
-            <motion.div
-              key="comparison"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <SiteComparison />
             </motion.div>
           )}
         </AnimatePresence>

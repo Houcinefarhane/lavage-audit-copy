@@ -15,36 +15,16 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       description: 'Suivez et pilotez la qualité de vos centres avec des audits détaillés et des rapports en temps réel.',
     },
     {
-      icon: '💰',
-      title: 'Gestion Financière',
-      description: 'Visualisez le CA, les dépenses et la rentabilité de chaque site avec des tableaux de bord intuitifs.',
-    },
-    {
-      icon: '⚙️',
-      title: 'Suivi Équipements',
-      description: 'Gérez vos équipements, recevez des alertes de maintenance et évitez les pannes coûteuses.',
-    },
-    {
-      icon: '👥',
-      title: 'Gestion RH',
-      description: 'Pilotez vos équipes, les plannings et les effectifs sur l\'ensemble de votre réseau.',
-    },
-    {
       icon: '📈',
       title: 'Comparaison Multi-Sites',
       description: 'Comparez les performances de vos différents sites et identifiez les meilleures pratiques.',
     },
-    {
-      icon: '💳',
-      title: 'Paiements Intégrés',
-      description: 'Synchronisez les transactions de vos terminaux de paiement et suivez les revenus en direct.',
-    },
   ];
 
   const stats = [
-    { value: '52', label: 'Sites gérés' },
     { value: '92%', label: 'Score qualité moyen' },
     { value: '48', label: 'Audits ce mois' },
+    { value: '52', label: 'Sites audités' },
     { value: '24/7', label: 'Support disponible' },
   ];
 
@@ -95,9 +75,9 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               <span className="hero-title-accent"> avec une vue 360°</span>
             </h1>
             <p className="hero-description">
-              Une solution complète pour gérer vos audits qualité, votre chiffre d'affaires,
-              vos équipements et vos équipes. Tout ce dont vous avez besoin pour optimiser
-              la performance de votre réseau en un seul endroit.
+              Une solution complète pour gérer vos audits qualité et comparer les performances
+              de vos différents sites. Tout ce dont vous avez besoin pour optimiser
+              la qualité de votre réseau en un seul endroit.
             </p>
             <div className="hero-cta">
               <button className="btn-hero-primary" onClick={onGetStarted}>
@@ -150,14 +130,14 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                     <div className="stat-trend up">+4%</div>
                   </div>
                   <div className="visual-stat">
-                    <div className="stat-label">CA mensuel</div>
-                    <div className="stat-value">€245K</div>
+                    <div className="stat-label">Audits ce mois</div>
+                    <div className="stat-value">48</div>
                     <div className="stat-trend up">+12%</div>
                   </div>
                   <div className="visual-stat">
-                    <div className="stat-label">Sites actifs</div>
+                    <div className="stat-label">Sites audités</div>
                     <div className="stat-value">48/52</div>
-                    <div className="stat-trend">100%</div>
+                    <div className="stat-trend">92%</div>
                   </div>
                 </div>
                 <div className="visual-chart">

@@ -4,11 +4,7 @@ import { AuditForm } from './components/AuditForm';
 import { AuditList } from './components/AuditList';
 import { Dashboard } from './components/Dashboard';
 import { SiteManagement } from './components/SiteManagement';
-import { FinanceModule } from './components/FinanceModule';
-import { EquipmentModule } from './components/EquipmentModule';
 import { SiteComparison } from './components/SiteComparison';
-import { PaymentModule } from './components/PaymentModule';
-import { HRModule } from './components/HRModule';
 import { Login } from './components/Login';
 import { LandingPage } from './components/LandingPage';
 import './App.css';
@@ -17,7 +13,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites' | 'finance' | 'equipment' | 'comparison' | 'payments' | 'hr'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'dashboard' | 'sites' | 'comparison'>('dashboard');
   const [showLanding, setShowLanding] = useState(true);
 
   // Vérifier l'authentification au chargement
@@ -148,30 +144,6 @@ function App() {
             Historique
           </button>
           <button
-            className={`nav-button ${activeTab === 'finance' ? 'active' : ''}`}
-            onClick={() => setActiveTab('finance')}
-          >
-            Finance
-          </button>
-          <button
-            className={`nav-button ${activeTab === 'payments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('payments')}
-          >
-            Paiements
-          </button>
-          <button
-            className={`nav-button ${activeTab === 'equipment' ? 'active' : ''}`}
-            onClick={() => setActiveTab('equipment')}
-          >
-            Équipements
-          </button>
-          <button
-            className={`nav-button ${activeTab === 'hr' ? 'active' : ''}`}
-            onClick={() => setActiveTab('hr')}
-          >
-            RH
-          </button>
-          <button
             className={`nav-button ${activeTab === 'sites' ? 'active' : ''}`}
             onClick={() => setActiveTab('sites')}
           >
@@ -226,28 +198,6 @@ function App() {
               <SiteManagement />
             </motion.div>
           )}
-          {activeTab === 'finance' && (
-            <motion.div
-              key="finance"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <FinanceModule />
-            </motion.div>
-          )}
-          {activeTab === 'equipment' && (
-            <motion.div
-              key="equipment"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <EquipmentModule />
-            </motion.div>
-          )}
           {activeTab === 'comparison' && (
             <motion.div
               key="comparison"
@@ -257,28 +207,6 @@ function App() {
               transition={{ duration: 0.3 }}
             >
               <SiteComparison />
-            </motion.div>
-          )}
-          {activeTab === 'payments' && (
-            <motion.div
-              key="payments"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <PaymentModule />
-            </motion.div>
-          )}
-          {activeTab === 'hr' && (
-            <motion.div
-              key="hr"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <HRModule />
             </motion.div>
           )}
         </AnimatePresence>

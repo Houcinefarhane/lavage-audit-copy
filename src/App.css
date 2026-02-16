@@ -2575,30 +2575,9 @@ body {
   border-bottom: none;
 }
 
-/* Finance, Equipment, Payment, HR modules */
-.finance-module,
-.equipment-module,
-.payment-module,
-.hr-module,
+/* Site Comparison module */
 .site-comparison {
   padding: 2rem;
-}
-
-.transactions-list,
-.equipments-list,
-.terminals-list,
-.employees-list,
-.shifts-list {
-  margin-top: 2rem;
-}
-
-.transactions-list h3,
-.equipments-list h3,
-.terminals-list h3,
-.employees-list h3,
-.shifts-list h3 {
-  margin-bottom: 1rem;
-  color: var(--text-primary);
 }
 
 /* Responsive */
